@@ -392,7 +392,7 @@
     <div class="no-print">
       <button id="toggle_btn" class="btn-toggle" type="button">Skift til kreditnota</button>
       <button class="btn-toggle" type="button" onclick="toggleQuickItems()">📋 عناصر جاهزة</button>
-      <button class="btn-print" type="button" onclick="window.print()">Print / gem som PDF</button>
+      <button class="btn-print" type="button" onclick="saveInvoicePDF()">Hent PDF</button>
     </div>
   </div>
 
@@ -980,6 +980,14 @@ function fallbackCopy(text){
   catch(e){ alert('لم أستطع النسخ تلقائياً — انسخ يدويًا'); }
   document.body.removeChild(ta);
 }
+function saveInvoicePDF(){
+  var oldTitle = document.title;
+  var n = document.getElementById('inv_no');
+  document.title = (currentType === 'credit' ? 'Kreditnota-' : 'Faktura-') + (n && n.value ? n.value : 'AHA');
+  window.print();
+  setTimeout(function(){ document.title = oldTitle; }, 1000);
+}
+
 // ==========================================
 
 </script>
