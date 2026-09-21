@@ -234,7 +234,7 @@
     <button type="button" id="settings_toggle_btn" class="btn-toggle" style="padding:6px 12px; border-radius:999px;">إخفاء / إظهار الإعدادات</button>
   </div>
 
-  <div id="settings_body" style="margin-top:10px;">
+  <div id="settings_body" style="margin-top:10px; display:none;">
     <div style="display:flex; gap:16px; flex-wrap:wrap;">
       <div style="flex:1; min-width:260px;">
         <div style="font-weight:700; margin-bottom:6px;">بيانات الشركة</div>
@@ -413,6 +413,7 @@
   <div style="margin-top:10px; line-height:1.8;">
     <div><b>1</b> – køresel assistance</div>
     <div><b>2</b> – Vogenløb lej</div>
+    <div><b>3</b> – Kontorleje</div>
   </div>
 
   <div style="margin-top:10px; color:#555;">
@@ -915,7 +916,8 @@ attachLineHandlers();
 // ===== Quick Items Panel (copy/insert) =====
 var quickItems = {
   1: 'køresel assistance',
-  2: 'Vogenløb lej'
+  2: 'Vogenløb lej',
+  3: 'Kontorleje'
 };
 
 function toggleQuickItems(){
@@ -983,7 +985,7 @@ function fallbackCopy(text){
   const quickItems = {
     1: 'køresel assistance',
     2: 'Vogenløb lej',
-    3: 'kontor lej'
+    3: 'Kontorleje'
   };
 
   const SAVED_KEY = 'aha_saved_phrases';
