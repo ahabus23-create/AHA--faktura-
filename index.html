@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <title>AHA bus ApS – Faktura / Kreditnota</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Arial, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f5f5f5;
+      padding: 16px;
+    }
+    .invoice-page {
+      width: 800px;
+      max-width: 100%;
+      margin: 0 auto;
+      background: #fff;
+      padding: 32px 40px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 40px;
+    }
+    .company-right {
+      text-align: right;
+      font-size: 24px;
+      font-weight: bold;
+    }
+    .from-block {
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .from-block input {
+      display: block;
+      border: none;
+      padding: 0;
+      margin: 0;
+      font-size: 12px;
+    }
+    .from-block input:focus {
+      outline: 1px dashed #999;
+    }
+    .meta-block {
+      font-size: 12px;
+      line-height: 1.6;
+      text-align: right;
+    }
+    .meta-label {
+      font-weight: normal;
+    }
+    .meta-value {
+      font-weight: bold;
+    }
+
+    /* Fakturanummer – altid sort og fed */
+    #inv_no {
+      font-weight: 700;
+      color: #000;
+    }
+
+    .label-small {
+      font-size: 11px;
+      color: #555;
+    }
+
+    .flex-row {
+      display: flex;
+      gap: 24px;
+    }
+    .flex-1 {
+      flex: 1;
+    }
+
+    .doc-type-title {
+      font-size: 22px;
+      font-weight: bold;
+      margin: 16px 0 8px;
+    }
+
+    .to-block {
+      margin-bottom: 24px;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .to-block input {
+      display: block;
+      border: none;
+      padding: 0;
+      margin: 0;
+      font-size: 12px;
+    }
+    .to-block input:focus {
+      outline: 1px dashed #999;
+    }
+
+    .items-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      margin-top: 8px;
+    }
+    .items-table thead th {
+      border-bottom: 2px solid #000;
+      padding: 6px 4px;
+      text-align: left;
+    }
+    .items-table tbody td {
+      border-bottom: 1px solid #ccc;
+      padding: 4px 4px;
+      vertical-align: top;
+    }
+
+    .items-table input {
+      width: 100%;
+      border: none;
+      padding: 0;
+      margin: 0;
+      font-size: 12px;
+      color: #000; /* alle beløb sort */
+    }
+    .items-table input:focus {
+      outline: 1px dashed #999;
+    }
+    .items-table .num {
+      text-align: right;
+    }
+    .items-table .line-total {
+      text-align: right;
+      white-space: nowrap;
+      color: #000; /* totaler også sort, også ved minus */
+    }
+
+    .subtotal-block {
+      margin-top: 8px;
+      width: 260px;
+      margin-left: auto;
+      font-size: 12px;
+    }
+    .subtotal-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 2px 0;
+      align-items: center;
+    }
+    .subtotal-row.total {
+      font-weight: bold;
+    }
+
+    .terms-block {
+      font-size: 11px;
+      margin-top: 24px;
+      border-top: 1px solid #000;
+      padding-top: 8px;
+      line-height: 1.5;
+    }
+
+    .no-print {
+      margin-top: 16px;
+    }
+    .no-print button {
+      padding: 8px 16px;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      margin-right: 8px;
+    }
+    .btn-toggle {
+      background: #e5e7eb;
+    }
+    .btn-print {
+      background: #16a34a;
+      color: #fff;
+    }
+
+    @media print {
+      body {
+        background: #ffffff;
+        padding: 0;
+      }
+      .invoice-page {
+        width: 100%;
+        margin: 0;
+        box-shadow: none;
+        padding: 20mm;
+      }
+      input {
+        border: none !important;
+        padding: 0 !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+      .hide-print {
+        display: none !important;
+      }
+      tr.hide-on-print { display: none !important; }
+
+    }
+
+    /* NEGATIVE RÆKKER – IKKE RØDE, bare normal tekstfarve (arvet sort) */
+    .neg-row .item-desc,
+    .neg-row .item-qty,
+    .neg-row .item-unit,
+    .neg-row .item-price {
+      color: #000;
+    }
+  </style>
+</head>
+<body>
+  <div class="invoice-page">
+
+    
+
+
+
+  <!-- Quick Items Toolbar (no-print) -->
+  <div class="no-print" id="quick_toolbar" style="display:flex; justify-content:flex-start; gap:10px; align-items:center; margin-bottom:10px;">
+    <button type="button" id="quick_items_btn" class="btn-toggle" style="padding:6px 12px; border-radius:999px; display:inline-flex; align-items:center; gap:8px;">
+      <span aria-hidden="true">📋</span> <span>عناصري جاهزة</span>
+    </button>
+    <span style="font-size:12px; color:#555;">(حدد سطر Beskrivelse ثم اضغط إضافة)</span>
+  </div>
+
+<div class="no-print" id="settings_panel" style="margin-bottom:16px; padding:12px; border:1px dashed #999; font-size:12px; line-height:1.6;">
+  <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+    <strong>إعدادات الفاتورة (لا تظهر عند الطباعة)</strong>
+    <button type="button" id="settings_toggle_btn" class="btn-toggle" style="padding:6px 12px; border-radius:999px;">إخفاء / إظهار الإعدادات</button>
+  </div>
+
+  <div id="settings_body" style="margin-top:10px;">
+    <div style="display:flex; gap:16px; flex-wrap:wrap;">
+      <div style="flex:1; min-width:260px;">
+        <div style="font-weight:700; margin-bottom:6px;">بيانات الشركة</div>
+        <div>اسم الشركة: <input id="set_company_name" type="text" style="width:100%;" placeholder="AHA bus ApS"></div>
+        <div>العنوان: <input id="set_company_addr" type="text" style="width:100%;" placeholder="Farverland 4, 2600 Glostrup"></div>
+        <div>CVR: <input id="set_company_cvr" type="text" style="width:100%;" placeholder="DK43530224"></div>
+        <div>الهاتف: <input id="set_company_phone" type="text" style="width:100%;" placeholder="71831385"></div>
+        <div>الإيميل: <input id="set_company_email" type="text" style="width:100%;" placeholder="ahabus23@gmail.com"></div>
+      </div>
+
+      <div style="flex:1; min-width:260px;">
+        <div style="font-weight:700; margin-bottom:6px;">الدفع / البنك</div>
+        <div>عدد أيام الدفع: <input type="number" id="payment_days_input" value="7" min="0" style="width:90px; text-align:center;"></div>
+        <div>تاريخ الفاتورة: <input type="date" id="set_invoice_date" style="width:170px;"></div>
+        <div>نص البنك (Reg/Konto): <input id="set_bank_text" type="text" style="width:100%;" placeholder="Reg.nr. 3409 / Kontonr. 14044418"></div>
+        <div>فائدة التأخير (نص): <input id="set_interest_text" type="text" style="width:100%;" placeholder="0,93% pr. påbegyndt måned"></div>
+        <div>رسوم التأخير (DKK): <input id="set_fee_amount" type="number" step="0.01" style="width:120px; text-align:right;" placeholder="100.00"></div>
+      </div>
+
+      <div style="flex:1; min-width:260px;">
+        <div style="font-weight:700; margin-bottom:6px;">العميل / الفاتورة</div>
+        <div>اسم العميل: <input id="set_cust_name" type="text" style="width:100%;"></div>
+        <div>العنوان: <input id="set_cust_addr" type="text" style="width:100%;"></div>
+        <div>Postnr og by: <input id="set_cust_zip_city" type="text" style="width:100%;"></div>
+        <div>CVR العميل: <input id="set_cust_cvr" type="text" style="width:100%;"></div>
+        <div>إيميل: <input id="set_cust_email" type="text" style="width:100%;"></div>
+        <div>هاتف: <input id="set_cust_phone" type="text" style="width:100%;"></div>
+      </div>
+    </div>
+
+    <div style="margin-top:12px; display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+      <div style="font-weight:700;">تحكم سريع:</div>
+      <button type="button" id="btn_set_today" class="btn-toggle" style="padding:6px 12px; border-radius:999px;">تحديث التاريخ لليوم</button>
+      <button type="button" id="btn_clear_customer" class="btn-toggle" style="padding:6px 12px; border-radius:999px;">مسح بيانات العميل</button>
+      <button type="button" id="btn_reset_numbers" class="btn-toggle" style="padding:6px 12px; border-radius:999px;">إعادة ضبط أرقام الفواتير</button>
+      <span style="color:#555;">(إعادة الضبط تضع الفاتورة 300 والكريدت 400)</span>
+    </div>
+
+    <div style="margin-top:10px; color:#555;">
+      ملاحظة: أي تعديل هنا يغيّر القيم داخل الفاتورة فورًا. يمكنك اختيار أي تاريخ سابق أو تاريخ اليوم فقط. هذه اللوحة لا تظهر عند الطباعة أو حفظ PDF.
+    </div>
+  </div>
+</div>
+
+
+<div class="top-bar">
+      <div class="from-block">
+        <input id="from_name" type="text" value="AHA bus ApS">
+        <input id="from_addr" type="text" value="Farverland 4, 2600 Glostrup">
+        <input id="from_cvr" type="text" value="CVR-nr.: DK43530224">
+      </div>
+      <div class="company-right">
+        AHA bus ApS
+      </div>
+    </div>
+
+    <div class="flex-row" style="margin-bottom: 12px;">
+      <div class="flex-1">
+        <div class="label-small">Dato:</div>
+        <div class="meta-value" id="inv_date_text"></div><input id="inv_date_input" type="date" class="hide-print" style="margin-top:4px; font-size:12px;">
+      </div>
+      <div class="flex-1 meta-block">
+        <div>
+          <span class="meta-label" id="inv_no_label">Faktura nr.:</span>
+          <span class="meta-value"><input id="inv_no" type="text" style="text-align:right;"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex-row" style="margin-bottom: 24px;">
+      <div class="flex-1 to-block">
+        <div class="label-small">Faktura til:</div>
+        <input id="cust_name" type="text" placeholder="Kundens navn / firma">
+        <input id="cust_addr" type="text" placeholder="Adresse">
+        <input id="cust_zip_city" type="text" placeholder="Postnr og by">
+        <input id="cust_cvr" type="text" placeholder="CVR-nr.">
+        <input id="cust_email" type="email" placeholder="E-mail">
+        <input id="cust_phone" type="tel" placeholder="Telefon">
+        <div id="cvr_status" class="label-small hide-print"></div>
+      </div>
+      <div class="flex-1 meta-block">
+        <div><span class="meta-label">Dokument:</span> <span class="meta-value" id="doc_title">Faktura</span></div>
+        <div><span class="meta-label">Forfaldsdato:</span> <span class="meta-value" id="due_text"></span></div>
+      </div>
+    </div>
+
+    <div class="doc-type-title">Faktura</div>
+
+    <table class="items-table">
+      <thead>
+        <tr>
+          <th>Beskrivelse</th>
+          <th style="width:60px;">Antal</th>
+          <th style="width:70px;">Enhed</th>
+          <th style="width:90px;">Enhedspris</th>
+          <th style="width:90px;">Pris</th>
+        </tr>
+      </thead>
+      <tbody id="items_body">
+        <!-- Normal linje (positiv) -->
+        <tr class="item-row pos-row">
+          <td><input class="item-desc" type="text" placeholder="Beskrivelse"></td>
+          <td><input class="item-qty num" type="number" step="0.01" placeholder="1"></td>
+          <td><input class="item-unit" type="text" placeholder="stk."></td>
+          <td><input class="item-price num" type="number" step="0.01" placeholder="0,00"></td>
+          <td class="line-total">0,00</td>
+        </tr>
+        <!-- Linje til fradrag / minus, lige under første -->
+        <tr class="item-row neg-row">
+          <td><input class="item-desc" type="text" placeholder="Fradrag / kredit (minus)"></td>
+          <td><input class="item-qty num" type="number" step="0.01" placeholder="1"></td>
+          <td><input class="item-unit" type="text" placeholder="stk."></td>
+          <td><input class="item-price num" type="number" step="0.01" placeholder="0,00"></td>
+          <td class="line-total">0,00</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="no-print" style="margin-top:8px;">
+      <button class="btn-toggle" type="button" onclick="addRow(true)">+ Tilføj linje (positiv)</button>
+      <button class="btn-toggle" type="button" onclick="addRow(false)">+ Tilføj linje (negativ)</button>
+    </div>
+
+    <div class="subtotal-block">
+      <div class="subtotal-row">
+        <span>Subtotal momspligtigt</span>
+        <span id="subtotal_taxable">0,00</span>
+      </div>
+      <div class="subtotal-row">
+        <span>Subtotal momsfrit</span>
+        <span id="subtotal_nontax">0,00</span>
+      </div>
+      <div class="subtotal-row total">
+        <span>Total DKK</span>
+        <span id="total_amount">0,00</span>
+      </div>
+    </div>
+
+    <div class="terms-block">
+      <div>Betalingsbetingelser: Netto 8 dage.</div>
+      <div>
+        Beløbet indbetales på bankkonto:
+        <strong>Reg.nr. 3409 / Kontonr. 14044418</strong>.
+        <span id="footer_inv_text">Fakturanr. bedes angivet ved bankoverførsel.</span>
+      </div>
+      <div>Ved betaling efter forfald tilskrives der renter på 0,93% pr. påbegyndt måned samt et gebyr på 100,00 DKK.</div>
+      <div style="margin-top:8px;">AHA bus ApS – Farverland 4, 2600 Glostrup – CVR-nr. DK43530224 – Tlf. 71831385 – E-mail: ahabus23@gmail.com</div>
+    </div>
+
+    <div class="no-print">
+      <button id="toggle_btn" class="btn-toggle" type="button">Skift til kreditnota</button>
+      <button class="btn-toggle" type="button" onclick="toggleQuickItems()">📋 عناصر جاهزة</button>
+      <button class="btn-print" type="button" onclick="window.print()">Print / gem som PDF</button>
+    </div>
+  </div>
+
+
+<div id="quick_items_panel" class="no-print" style="
+  display:none;
+  position:fixed;
+  bottom:20px;
+  right:20px;
+  background:#fff;
+  border:1px solid #ccc;
+  padding:12px;
+  width:280px;
+  box-shadow:0 4px 12px rgba(0,0,0,0.15);
+  font-size:12px;
+  z-index:9999;
+">
+  <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+    <strong>نصوص جاهزة</strong>
+    <button type="button" class="btn-toggle" style="padding:4px 10px;" onclick="toggleQuickItems()">×</button>
+  </div>
+
+  <div style="margin-top:10px; line-height:1.8;">
+    <div><b>1</b> – køresel assistance</div>
+    <div><b>2</b> – Vogenløb lej</div>
+  </div>
+
+  <div style="margin-top:10px; color:#555;">
+    • اكتب الرقم ثم اضغط "إضافة" لإدراج النص في آخر سطر (Beskrivelse).<br>
+    • أو انسخ النص يدويًا.
+  </div>
+
+  <div style="margin-top:10px; display:flex; gap:8px; align-items:center;">
+    <input id="quick_item_input" type="number" min="1" style="width:70px; padding:6px; border:1px solid #ccc; border-radius:6px;">
+    <button type="button" class="btn-toggle" onclick="applyQuickItem()">إضافة</button>
+    <button type="button" class="btn-toggle" onclick="copyQuickText()">نسخ</button>
+  </div>
+</div>
+
+<script>
+var currentType = 'invoice'; // 'invoice' eller 'credit';
+
+// ===== Date handling =====
+function formatDateDa(dateObj){
+  var d = String(dateObj.getDate()).padStart(2,'0');
+  var m = String(dateObj.getMonth() + 1).padStart(2,'0');
+  var y = dateObj.getFullYear();
+  return d + '.' + m + '.' + y;
+}
+function formatDateISO(dateObj){
+  var d = String(dateObj.getDate()).padStart(2,'0');
+  var m = String(dateObj.getMonth() + 1).padStart(2,'0');
+  var y = dateObj.getFullYear();
+  return y + '-' + m + '-' + d;
+}
+function parseISODate(str){
+  if(!str) return null;
+  var m = String(str).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(!m) return null;
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+}
+function getSelectedInvoiceDate(){
+  var inp = document.getElementById('inv_date_input');
+  var parsed = inp ? parseISODate(inp.value) : null;
+  return parsed || new Date();
+}
+function setInvoiceDate(dateObj){
+  var textEl = document.getElementById('inv_date_text');
+  var inputEl = document.getElementById('inv_date_input');
+  var settingsEl = document.getElementById('set_invoice_date');
+  var today = new Date();
+  today.setHours(0,0,0,0);
+  var chosen = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
+  if (chosen > today) chosen = today;
+  if (textEl) textEl.textContent = formatDateDa(chosen);
+  if (inputEl) {
+    inputEl.value = formatDateISO(chosen);
+    inputEl.max = formatDateISO(today);
+  }
+  if (settingsEl) {
+    settingsEl.value = formatDateISO(chosen);
+    settingsEl.max = formatDateISO(today);
+  }
+}
+(function(){
+  setInvoiceDate(new Date());
+})();
+
+
+
+// ===== Settings panel bindings (no-print) =====
+(function(){
+  function el(id){ return document.getElementById(id); }
+
+  // Toggle settings visibility
+  var toggleBtn = el('settings_toggle_btn');
+  var body = el('settings_body');
+  if (toggleBtn && body) {
+    toggleBtn.addEventListener('click', function(){
+      body.style.display = (body.style.display === 'none') ? '' : 'none';
+    });
+  }
+
+  // Map settings inputs to invoice fields
+  var fromName = el('from_name');
+  var fromAddr = el('from_addr');
+  var fromCvr  = el('from_cvr');
+
+  var setCompanyName  = el('set_company_name');
+  var setCompanyAddr  = el('set_company_addr');
+  var setCompanyCvr   = el('set_company_cvr');
+  var setCompanyPhone = el('set_company_phone');
+  var setCompanyEmail = el('set_company_email');
+
+  var setBankText     = el('set_bank_text');
+  var setInterestText = el('set_interest_text');
+  var setFeeAmount    = el('set_fee_amount');
+
+  var custName   = el('cust_name');
+  var custAddr   = el('cust_addr');
+  var custZip    = el('cust_zip_city');
+  var custCvr    = el('cust_cvr');
+  var custEmail  = el('cust_email');
+  var custPhone  = el('cust_phone');
+
+  var setCustName  = el('set_cust_name');
+  var setCustAddr  = el('set_cust_addr');
+  var setCustZip   = el('set_cust_zip_city');
+  var setCustCvr   = el('set_cust_cvr');
+  var setCustEmail = el('set_cust_email');
+  var setCustPhone = el('set_cust_phone');
+
+  // Footer/company line in terms block (last line)
+  // We will update only the phone/email part to avoid layout changes.
+  var termsBlock = document.querySelector('.terms-block');
+  var termsFirstLine = termsBlock ? termsBlock.querySelector('div') : null;
+  var bankStrong = termsBlock ? termsBlock.querySelector('strong') : null;
+  var interestLine = termsBlock ? termsBlock.querySelectorAll('div')[2] : null;
+  var footerLine = termsBlock ? termsBlock.querySelectorAll('div')[3] : null;
+
+  // Initialize settings inputs from current invoice content
+  if (fromName && setCompanyName) setCompanyName.value = fromName.value || '';
+  if (fromAddr && setCompanyAddr) setCompanyAddr.value = fromAddr.value || '';
+  if (fromCvr && setCompanyCvr) {
+    var c = (fromCvr.value || '').replace('CVR-nr.:','').trim();
+    setCompanyCvr.value = c;
+  }
+
+  // Try to parse phone/email from footer line if present
+  if (footerLine) {
+    var txt = footerLine.textContent || '';
+    // naive parse: find "Tlf." and "E-mail:"
+    var phoneMatch = txt.match(/Tlf\.\s*([0-9 ]+)/i);
+    var emailMatch = txt.match(/E-mail:\s*([^\s]+)/i);
+    if (setCompanyPhone && phoneMatch) setCompanyPhone.value = (phoneMatch[1] || '').trim();
+    if (setCompanyEmail && emailMatch) setCompanyEmail.value = (emailMatch[1] || '').trim();
+  }
+
+  // Bank
+  if (bankStrong && setBankText) setBankText.value = bankStrong.textContent.trim();
+
+  // Interest and fee (best-effort parse)
+  if (interestLine) {
+    var l = interestLine.textContent || '';
+    var im = l.match(/renter på\s*([0-9,\.% ]+)/i);
+    var fm = l.match(/gebyr på\s*([0-9,\.]+)/i);
+    if (setInterestText && im) setInterestText.value = (im[1] || '').trim();
+    if (setFeeAmount && fm) {
+      var n = (fm[1] || '').replace(',','.');
+      setFeeAmount.value = parseFloat(n) || '';
+    }
+  }
+
+  // Customer init
+  if (setCustName && custName) setCustName.value = custName.value || '';
+  if (setCustAddr && custAddr) setCustAddr.value = custAddr.value || '';
+  if (setCustZip && custZip) setCustZip.value = custZip.value || '';
+  if (setCustCvr && custCvr) setCustCvr.value = custCvr.value || '';
+  if (setCustEmail && custEmail) setCustEmail.value = custEmail.value || '';
+  if (setCustPhone && custPhone) setCustPhone.value = custPhone.value || '';
+
+  function updateCompany(){
+    if (fromName && setCompanyName) fromName.value = setCompanyName.value;
+    if (fromAddr && setCompanyAddr) fromAddr.value = setCompanyAddr.value;
+    if (fromCvr && setCompanyCvr) fromCvr.value = 'CVR-nr.: ' + (setCompanyCvr.value || '').trim();
+
+    // Right header company name (big text)
+    var rightTitle = document.querySelector('.company-right');
+    if (rightTitle && setCompanyName) rightTitle.textContent = setCompanyName.value || '';
+
+    // Footer line
+    if (footerLine) {
+      var name = (setCompanyName && setCompanyName.value) ? setCompanyName.value : 'AHA bus ApS';
+      var addr = (setCompanyAddr && setCompanyAddr.value) ? setCompanyAddr.value : '';
+      var cvr  = (setCompanyCvr && setCompanyCvr.value) ? setCompanyCvr.value : '';
+      var phone = (setCompanyPhone && setCompanyPhone.value) ? setCompanyPhone.value : '';
+      var email = (setCompanyEmail && setCompanyEmail.value) ? setCompanyEmail.value : '';
+      footerLine.textContent = name + ' – ' + addr + ' – CVR-nr. ' + cvr + ' – Tlf. ' + phone + ' – E-mail: ' + email;
+    }
+  }
+
+  function updateBankAndFees(){
+    if (bankStrong && setBankText) bankStrong.textContent = setBankText.value || bankStrong.textContent;
+
+    if (interestLine) {
+      var interest = (setInterestText && setInterestText.value) ? setInterestText.value : '0,93% pr. påbegyndt måned';
+      var fee = (setFeeAmount && setFeeAmount.value !== '') ? Number(setFeeAmount.value).toLocaleString('da-DK',{minimumFractionDigits:2, maximumFractionDigits:2}) : '100,00';
+      interestLine.textContent = 'Ved betaling efter forfald tilskrives der renter på ' + interest + ' samt et gebyr på ' + fee + ' DKK.';
+    }
+  }
+
+  function updateCustomer(){
+    if (custName && setCustName) custName.value = setCustName.value;
+    if (custAddr && setCustAddr) custAddr.value = setCustAddr.value;
+    if (custZip && setCustZip) custZip.value = setCustZip.value;
+    if (custCvr && setCustCvr) custCvr.value = setCustCvr.value;
+    if (custEmail && setCustEmail) custEmail.value = setCustEmail.value;
+    if (custPhone && setCustPhone) custPhone.value = setCustPhone.value;
+  }
+
+  // Payment days input drives due date + terms first line
+  var paymentInput = el('payment_days_input');
+  function updateDueDateFromInput(){
+    if (!paymentInput) return;
+    var days = parseInt(paymentInput.value,10);
+    if (isNaN(days) || days < 0) days = 7;
+
+    var baseDate = (typeof getSelectedInvoiceDate === 'function') ? getSelectedInvoiceDate() : new Date();
+    var due = new Date(baseDate.getTime());
+    due.setDate(due.getDate() + days);
+
+    var dueText = el('due_text');
+    if (dueText) dueText.textContent = formatDateDa(due);
+
+    if (termsFirstLine) termsFirstLine.textContent = 'Betalingsbetingelser: Netto ' + days + ' dage.';
+  }
+
+  // Quick buttons
+  var btnToday = el('btn_set_today');
+  if (btnToday) btnToday.addEventListener('click', function(){
+    setInvoiceDate(new Date());
+    updateDueDateFromInput();
+  });
+
+  var btnClear = el('btn_clear_customer');
+  if (btnClear) btnClear.addEventListener('click', function(){
+    if (setCustName) setCustName.value = '';
+    if (setCustAddr) setCustAddr.value = '';
+    if (setCustZip) setCustZip.value = '';
+    if (setCustCvr) setCustCvr.value = '';
+    if (setCustEmail) setCustEmail.value = '';
+    if (setCustPhone) setCustPhone.value = '';
+    updateCustomer();
+  });
+
+  var btnReset = el('btn_reset_numbers');
+  if (btnReset) btnReset.addEventListener('click', function(){
+    localStorage.setItem('aha_inv_300', 299);
+    localStorage.setItem('aha_credit_400', 399);
+    // force apply current type numbering
+    if (typeof applyDocType === 'function') applyDocType();
+  });
+
+  // Wire change events
+  [setCompanyName, setCompanyAddr, setCompanyCvr, setCompanyPhone, setCompanyEmail].forEach(function(x){
+    if (x) x.addEventListener('input', function(){ updateCompany(); });
+  });
+
+  [setBankText, setInterestText, setFeeAmount].forEach(function(x){
+    if (x) x.addEventListener('input', function(){ updateBankAndFees(); });
+  });
+
+  [setCustName, setCustAddr, setCustZip, setCustCvr, setCustEmail, setCustPhone].forEach(function(x){
+    if (x) x.addEventListener('input', function(){ updateCustomer(); });
+  });
+
+  if (paymentInput) paymentInput.addEventListener('input', updateDueDateFromInput);
+
+  var invDateInput = el('inv_date_input');
+  var settingsDateInput = el('set_invoice_date');
+
+  function syncInvoiceDateFromValue(value){
+    var chosen = parseISODate(value);
+    if (!chosen) return;
+    setInvoiceDate(chosen);
+    updateDueDateFromInput();
+  }
+
+  if (invDateInput) invDateInput.addEventListener('input', function(){ syncInvoiceDateFromValue(invDateInput.value); });
+  if (settingsDateInput) settingsDateInput.addEventListener('input', function(){ syncInvoiceDateFromValue(settingsDateInput.value); });
+
+  // Initial apply
+  updateCompany();
+  updateBankAndFees();
+  updateCustomer();
+  updateDueDateFromInput();
+})();
+ // ================================================
+
+
+
+// Opdater teksten i bunden med faktura-/kreditnota-nummer
+function updateFooterText(){
+  var numEl = document.getElementById('inv_no');
+  var footerEl = document.getElementById('footer_inv_text');
+  if (!numEl || !footerEl) return;
+
+  var num = (numEl.value || '').trim();
+
+  if (!num) {
+    if (currentType === 'invoice') {
+      footerEl.innerHTML = '<strong>Fakturanr.</strong> bedes angivet ved bankoverførsel.';
+    } else {
+      footerEl.innerHTML = '<strong>Kreditnota nr.</strong> bedes angivet ved bankoverførsel.';
+    }
+  } else {
+    if (currentType === 'invoice') {
+      footerEl.innerHTML = '<strong>Fakturanr. ' + num + '</strong> bedes angivet ved bankoverførsel.';
+    } else {
+      footerEl.innerHTML = '<strong>Kreditnota nr. ' + num + '</strong> bedes angivet ved bankoverførsel.';
+    }
+  }
+}
+
+// Sæt nummer afhængigt af dokumenttype
+function setNumberForType(type){
+  var f = document.getElementById('inv_no');
+  if (!f) return;
+  var key, start;
+  if (type === 'invoice') {
+    key = 'aha_inv_300';
+    start = 300;
+  } else {
+    key = 'aha_credit_400';
+    start = 400;
+  }
+  var last = localStorage.getItem(key);
+  var next = last ? parseInt(last,10) + 1 : start;
+  if (isNaN(next)) next = start;
+  f.value = next;
+  localStorage.setItem(key, next);
+  updateFooterText();
+}
+
+// Skift mellem faktura og kreditnota
+function applyDocType(){
+  var docTitle = document.getElementById('doc_title');
+  var docTypeHeading = document.querySelector('.doc-type-title');
+  var label = document.getElementById('inv_no_label');
+  var btn = document.getElementById('toggle_btn');
+
+  if (currentType === 'invoice') {
+    if (docTitle) docTitle.textContent = 'Faktura';
+    if (docTypeHeading) docTypeHeading.textContent = 'Faktura';
+    if (label) label.textContent = 'Faktura nr.:';
+    if (btn) btn.textContent = 'Skift til kreditnota';
+  } else {
+    if (docTitle) docTitle.textContent = 'Kreditnota';
+    if (docTypeHeading) docTypeHeading.textContent = 'Kreditnota';
+    if (label) label.textContent = 'Kreditnota nr.:';
+    if (btn) btn.textContent = 'Skift til faktura';
+  }
+  setNumberForType(currentType);
+  calcTotals();
+}
+
+function toggleDocType(){
+  currentType = (currentType === 'invoice') ? 'credit' : 'invoice';
+  applyDocType();
+}
+
+document.getElementById('toggle_btn').addEventListener('click', toggleDocType);
+
+// opdater bundtekst når man skriver manuelt i nummer-feltet
+document.getElementById('inv_no').addEventListener('input', updateFooterText);
+
+// init
+applyDocType();
+
+// Tilføj ekstra linjer – vælg om positiv eller negativ
+function addRow(isPositive){
+  var body = document.getElementById('items_body');
+  var tr = document.createElement('tr');
+  tr.className = 'item-row ' + (isPositive ? 'pos-row' : 'neg-row');
+  tr.innerHTML =
+    '<td><input class="item-desc" type="text" placeholder="' + (isPositive ? 'Beskrivelse' : 'Fradrag / kredit (minus)') + '"></td>' +
+    '<td><input class="item-qty num" type="number" step="0.01" placeholder="1"></td>' +
+    '<td><input class="item-unit" type="text" placeholder="stk."></td>' +
+    '<td><input class="item-price num" type="number" step="0.01" placeholder="0,00"></td>' +
+    '<td class="line-total">0,00</td>';
+  body.appendChild(tr);
+  attachLineHandlers(tr);
+  calcTotals();
+}
+
+// Beregn totaler – alle rækker med class "neg-row" bliver minus (men stadig sort tekst)
+function calcTotals(){
+  var rows = document.querySelectorAll('.item-row');
+  var subtotalTax = 0;
+  var subtotalNon = 0;
+
+  rows.forEach(function(r){
+    var descEl = r.querySelector('.item-desc');
+    var qtyEl = r.querySelector('.item-qty');
+    var priceEl = r.querySelector('.item-price');
+    if (!descEl || !qtyEl || !priceEl) return;
+
+    var desc = (descEl.value || '').trim().toLowerCase();
+    var qty = parseFloat((qtyEl.value || '').replace(',','.')) || 0;
+    var price = parseFloat((priceEl.value || '').replace(',','.')) || 0;
+    var line = qty * price;
+
+    if (r.classList.contains('neg-row')) {
+      line = -Math.abs(line);
+    }
+
+    // Hide empty/zero rows on PRINT only (works for both positive and negative rows)
+    // - If qty or price not entered, or the resulting line is 0 => hide on print
+    var qtyRaw = (qtyEl.value || '').trim();
+    var priceRaw = (priceEl.value || '').trim();
+    if (!qtyRaw || !priceRaw || Math.abs(line) < 0.0000001) {
+      r.classList.add('hide-on-print');
+    } else {
+      r.classList.remove('hide-on-print');
+    }
+
+    var lineCell = r.querySelector('.line-total');
+    if (lineCell) {
+      lineCell.textContent = line.toLocaleString('da-DK',{minimumFractionDigits:2, maximumFractionDigits:2});
+    }
+
+    if (!qty && !price) return;
+
+    if (desc.indexOf('momsfri') !== -1 || desc.indexOf('momsfri.') !== -1) {
+      subtotalNon += line;
+    } else {
+      subtotalTax += line;
+    }
+  });
+
+  var baseTotal = subtotalTax + subtotalNon;
+  var adjustedTotal = baseTotal;
+
+  if (currentType === 'credit') {
+    adjustedTotal = -Math.abs(adjustedTotal);
+  }
+
+  document.getElementById('subtotal_taxable').textContent =
+    subtotalTax.toLocaleString('da-DK',{minimumFractionDigits:2, maximumFractionDigits:2});
+  document.getElementById('subtotal_nontax').textContent =
+    subtotalNon.toLocaleString('da-DK',{minimumFractionDigits:2, maximumFractionDigits:2});
+  document.getElementById('total_amount').textContent =
+    adjustedTotal.toLocaleString('da-DK',{minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+function attachLineHandlers(scope){
+  var rowScope = scope || document;
+  var qtys = rowScope.querySelectorAll('.item-qty');
+  var prices = rowScope.querySelectorAll('.item-price');
+  var descs = rowScope.querySelectorAll('.item-desc');
+  qtys.forEach(function(el){ el.oninput = calcTotals; });
+  prices.forEach(function(el){ el.oninput = calcTotals; });
+  descs.forEach(function(el){ el.oninput = calcTotals; });
+}
+
+// init handlers for existing rows
+attachLineHandlers();
+
+// Automatisk CVR-opslag
+(function(){
+  var cvrInput = document.getElementById('cust_cvr');
+  if (!cvrInput) return;
+  var statusEl = document.getElementById('cvr_status');
+
+  function setStatus(msg){
+    if (statusEl) statusEl.textContent = msg || '';
+  }
+
+  var lastValue = '';
+
+  function tryLookup(){
+    var v = (cvrInput.value || '').replace(/\D/g,'');
+    if (v.length < 8 || v === lastValue) return;
+    lastValue = v;
+    setStatus('Henter CVR-data...');
+
+    fetch('https://cvrapi.dk/api?country=dk&vat=' + encodeURIComponent(v) + '&format=json')
+      .then(function(r){
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function(data){
+        if (data && data.name){
+          var nameEl = document.getElementById('cust_name');
+          var addrEl = document.getElementById('cust_addr');
+          var zipCityEl = document.getElementById('cust_zip_city');
+          var emailEl = document.getElementById('cust_email');
+          var phoneEl = document.getElementById('cust_phone');
+
+          if (nameEl) nameEl.value = data.name || '';
+          if (addrEl) addrEl.value = (data.address || '').trim();
+          if (zipCityEl) zipCityEl.value = (data.zipcode || '') + ' ' + (data.city || '');
+          if (emailEl) emailEl.value = data.email || '';
+          if (phoneEl) phoneEl.value = data.phone || '';
+
+          setStatus('Data hentet ✔');
+        } else {
+          setStatus('Ingen data fundet på dette CVR-nummer');
+        }
+      })
+      .catch(function(){
+        setStatus('Kunne ikke hente data (kræver internet og gyldigt CVR)');
+      });
+  }
+
+  cvrInput.addEventListener('blur', tryLookup);
+  cvrInput.addEventListener('input', function(){
+    var v = (cvrInput.value || '').replace(/\D/g,'');
+    if (v.length >= 8) {
+      tryLookup();
+    }
+  });
+})();
+
+// ===== Quick Items Panel (copy/insert) =====
+var quickItems = {
+  1: 'køresel assistance',
+  2: 'Vogenløb lej'
+};
+
+function toggleQuickItems(){
+  var p = document.getElementById('quick_items_panel');
+  if (!p) return;
+  p.style.display = (p.style.display === 'none' || !p.style.display) ? 'block' : 'none';
+}
+
+function applyQuickItem(){
+  var inp = document.getElementById('quick_item_input');
+  if (!inp) return;
+  var num = String(inp.value || '').trim();
+  var txt = quickItems[num];
+  if (!txt) {
+    alert('رقم غير صحيح');
+    return;
+  }
+  // Put into the last description field (or first if none)
+  var descs = document.querySelectorAll('.item-desc');
+  if (descs && descs.length) {
+    var target = descs[descs.length - 1];
+    target.value = txt;
+    target.dispatchEvent(new Event('input'));
+    target.focus();
+  }
+}
+
+function copyQuickText(){
+  var inp = document.getElementById('quick_item_input');
+  var num = inp ? String(inp.value || '').trim() : '';
+  var txt = quickItems[num] || '';
+  if (!txt) {
+    // default: copy both lines if no number selected
+    txt = Object.keys(quickItems).sort().map(function(k){ return quickItems[k]; }).join('\n');
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(txt).then(function(){
+      alert('تم النسخ ✔');
+    }).catch(function(){
+      fallbackCopy(txt);
+    });
+  } else {
+    fallbackCopy(txt);
+  }
+}
+
+function fallbackCopy(text){
+  var ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.left = '-9999px';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); alert('تم النسخ ✔'); }
+  catch(e){ alert('لم أستطع النسخ تلقائياً — انسخ يدويًا'); }
+  document.body.removeChild(ta);
+}
+// ==========================================
+
+</script>
+
+<script>
+(function(){
+  // Fixed options (exact wording as requested)
+  const quickItems = {
+    1: 'køresel assistance',
+    2: 'Vogenløb lej',
+    3: 'kontor lej'
+  };
+
+  const SAVED_KEY = 'aha_saved_phrases';
+
+  function getActiveDesc(){
+    const el = document.activeElement;
+    if(el && el.classList && el.classList.contains('item-desc')) return el;
+    const all = document.querySelectorAll('.item-desc');
+    return all.length ? all[all.length - 1] : null;
+  }
+
+  window.toggleQuickItems = function(){
+    const p = document.getElementById('quick_items_panel');
+    if(!p) return;
+    const opening = (p.style.display === 'none' || !p.style.display);
+    p.style.display = opening ? 'block' : 'none';
+    if(opening) renderSavedPhrases();
+  };
+
+  window.applyQuickItem = function(){
+    const num = document.getElementById('quick_item_input')?.value;
+    const text = quickItems[num];
+    if(!text) return alert('رقم غير صحيح');
+    const target = getActiveDesc();
+    if(target){
+      target.value = text;
+      target.dispatchEvent(new Event('input', {bubbles:true}));
+    }
+  };
+
+  window.applyCustomSentence = function(){
+    const txt = document.getElementById('custom_sentence')?.value?.trim();
+    if(!txt) return;
+    const target = getActiveDesc();
+    if(target){
+      target.value = txt;
+      target.dispatchEvent(new Event('input', {bubbles:true}));
+    }
+  };
+
+  function loadSavedPhrases(){
+    try{
+      const raw = localStorage.getItem(SAVED_KEY);
+      const arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    }catch(e){ return []; }
+  }
+  function storeSavedPhrases(arr){
+    localStorage.setItem(SAVED_KEY, JSON.stringify(arr || []));
+  }
+
+  window.saveCustomSentence = function(){
+    const inp = document.getElementById('custom_sentence');
+    const txt = inp ? inp.value.trim() : '';
+    if(!txt) return alert('اكتب الجملة أولاً.');
+    const arr = loadSavedPhrases();
+    const exists = arr.some(x => (x||'').toLowerCase() === txt.toLowerCase());
+    if(!exists){
+      arr.push(txt);
+      storeSavedPhrases(arr);
+    }
+    renderSavedPhrases();
+  };
+
+  window.clearSavedPhrases = function(){
+    if(!confirm('أكيد بدك تمسح كل الجمل المحفوظة؟')) return;
+    storeSavedPhrases([]);
+    renderSavedPhrases();
+  };
+
+  window.applySavedPhrase = function(index){
+    const arr = loadSavedPhrases();
+    const txt = arr[index];
+    if(!txt) return;
+    const target = getActiveDesc();
+    if(target){
+      target.value = txt;
+      target.dispatchEvent(new Event('input', {bubbles:true}));
+    }
+  };
+
+  window.copySavedPhrase = function(index){
+    const arr = loadSavedPhrases();
+    const txt = arr[index];
+    if(!txt) return;
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt);
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = txt;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+  };
+
+  window.renderSavedPhrases = function(){
+    const box = document.getElementById('saved_phrases_list');
+    if(!box) return;
+    const arr = loadSavedPhrases();
+    if(!arr.length){
+      box.innerHTML = '<div style="color:#666;">لا يوجد جمل محفوظة بعد.</div>';
+      return;
+    }
+    box.innerHTML = arr.map((t,i)=>{
+      const safe = (t||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      return `<div style="display:flex; justify-content:space-between; gap:8px; align-items:center; margin-bottom:4px;">
+        <div style="flex:1;">${safe}</div>
+        <div style="white-space:nowrap;">
+          <button type="button" onclick="applySavedPhrase(${i})">إضافة</button>
+          <button type="button" onclick="copySavedPhrase(${i})" style="margin-left:6px;">نسخ</button>
+        </div>
+      </div>`;
+    }).join('');
+  };
+
+  // Bind toolbar button
+  document.addEventListener('DOMContentLoaded', function(){
+    const btn = document.getElementById('quick_items_btn');
+    if(btn){
+      btn.addEventListener('click', window.toggleQuickItems);
+    }
+    // Ensure panel is hidden initially
+    const p = document.getElementById('quick_items_panel');
+    if(p && !p.style.display) p.style.display = 'none';
+    window.renderSavedPhrases();
+  });
+})();
+</script>
+
+</body>
+</html>
